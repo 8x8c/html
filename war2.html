@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Gorillas vs Computer – Cumulative Crater Explosions</title>
+  <style>
+    body { margin: 0; background: #222; color: #fff; font-family: sans-serif; }
+    #gameCanvas { background: #444; display: block; margin: 20px auto; border: 2px solid #fff; }
+    #controls { text-align: center; padding: 10px; }
+    input[type="number"] { width: 40px; text-align: center; }
+    button { font-size: 16px; margin: 5px; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="controls">
+    <span id="playerDisplay">Human's turn</span> |
+    Angle: <input type="number" id="angle" value="45">
+    Power: <input type="number" id="power" value="50">
+    <button id="throwBtn">Throw</button>
+    | Wind: <span id="windDisplay"></span>
+  </div>
+  <script>
+    (function() {
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+
+      // Physics parameters.
+      const GRAVITY = 9.8;
+      const TIME_STEP = 0.05;
+      const SIM_TIME_STEP = 0.1;
+      const SIM_MAX_TIME = 5;
+      
+      // Crater parameters:
+      const CRATER_RADIUS = 40;  // Horizontal extent (in pixels) of each explosion's effect.
+      const CRATER_DEPTH = 60;   // Maximum drop (in pixels) at the center of a crater.
+      const MAX_CUMULATIVE_DROP = CRATER_DEPTH * 3; // Cap cumulative drop to prevent complete removal.
+
+      let buildings = [];
+      let gorillas = [];
+      let currentPlayer = 0; // 0 = Human (left), 1 = Computer (right)
+      let banana = null;
+      let wind = 0;
+      let explosions = []; // Temporary visual explosion effects
+
+      // Each building is stored as:
+      // { x, width, y, craters: [ { x, radius } ] }
+      // where y is the original flat top and craters records explosion positions.
+      
+      function init() {
+        generateBuildings();
+        placeGorillas();
+        newTurn();
+        draw();
+      }
+
+      function generateBuildings() {
+        buildings = [];
+        let x = 0;
+        while (x < canvas.width) {
+          let width = 50 + Math.random() * 50; // 50-100 px wide.
+          if (x + width > canvas.width) width = canvas.width - x;
+          let height = 150 + Math.random() * 250; // 150-400 px tall.
+          buildings.push({
+            x: x,
+            width: width,
+            y: canvas.height - height, // Original flat top.
+            craters: [] // No damage initially.
+          });
+          x += width;
+        }
+      }
+
+      // Compute the effective surface of building b at horizontal coordinate x.
+      // Instead of taking the maximum drop from one crater,
+      // we sum the contributions from all craters that affect x.
+      // Each crater contributes a drop of:
+      //   CRATER_DEPTH * cos((dx / crater.radius) * (π/2))
+      // and we cap the total drop at MAX_CUMULATIVE_DROP.
+      function getSurface(b, x) {
+        let totalDrop = 0;
+        for (let crater of b.craters) {
+          let dx = Math.abs(x - crater.x);
+          if (dx < crater.radius) {
+            totalDrop += CRATER_DEPTH * Math.cos((dx / crater.radius) * (Math.PI / 2));
+          }
+        }
+        totalDrop = Math.min(totalDrop, MAX_CUMULATIVE_DROP);
+        return b.y + totalDrop;
+      }
+
+      // Draw the building by sampling its effective (damaged) surface.
+      function drawBuilding(b) {
+        ctx.beginPath();
+        const step = 2;
+        for (let x = b.x; x <= b.x + b.width; x += step) {
+          let y = getSurface(b, x);
+          if (x === b.x) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.lineTo(b.x + b.width, canvas.height);
+        ctx.lineTo(b.x, canvas.height);
+        ctx.closePath();
+        ctx.fillStyle = "#666";
+        ctx.fill();
+        ctx.strokeStyle = "#333";
+        ctx.stroke();
+      }
+
+      // Place gorillas on the leftmost and rightmost buildings.
+      function placeGorillas() {
+        let leftBuilding = buildings[0];
+        let rightBuilding = buildings[buildings.length - 1];
+        gorillas = [
+          { x: leftBuilding.x + leftBuilding.width / 2, y: getSurface(leftBuilding, leftBuilding.x + leftBuilding.width / 2) },
+          { x: rightBuilding.x + rightBuilding.width / 2, y: getSurface(rightBuilding, rightBuilding.x + rightBuilding.width / 2) }
+        ];
+      }
+
+      function newTurn() {
+        banana = null;
+        wind = (Math.random() * 20) - 10; // Wind between -10 and +10.
+        document.getElementById("windDisplay").textContent = wind.toFixed(2);
+        if (currentPlayer === 0) {
+          document.getElementById("playerDisplay").textContent = "Human's turn";
+          document.getElementById("angle").disabled = false;
+          document.getElementById("power").disabled = false;
+          document.getElementById("throwBtn").disabled = false;
+        } else {
+          document.getElementById("playerDisplay").textContent = "Computer's turn";
+          document.getElementById("angle").disabled = true;
+          document.getElementById("power").disabled = true;
+          document.getElementById("throwBtn").disabled = true;
+          setTimeout(computerThrow, 1000);
+        }
+      }
+
+      function throwBanana() {
+        if (banana || currentPlayer !== 0) return;
+        const angleVal = parseFloat(document.getElementById("angle").value);
+        const powerVal = parseFloat(document.getElementById("power").value);
+        let gorilla = gorillas[currentPlayer];
+        // Launch the banana 30 pixels above the gorilla.
+        banana = {
+          x: gorilla.x,
+          y: gorilla.y - 30,
+          vx: powerVal * Math.cos(angleVal * Math.PI / 180),
+          vy: -powerVal * Math.sin(angleVal * Math.PI / 180),
+          time: 0
+        };
+      }
+
+      function computerThrow() {
+        let startX = gorillas[1].x;
+        let startY = gorillas[1].y - 30;
+        let target = gorillas[0];
+        let bestAngle = null, bestPower = null, bestError = Infinity;
+        for (let angle = 10; angle <= 80; angle += 5) {
+          for (let power = 10; power <= 100; power += 10) {
+            let error = simulateThrow(startX, startY, target, angle, power);
+            if (error < bestError) {
+              bestError = error;
+              bestAngle = angle;
+              bestPower = power;
+            }
+          }
+        }
+        if (bestAngle === null) {
+          bestAngle = 45;
+          bestPower = 50;
+        }
+        console.log("Computer throw: angle=" + bestAngle + ", power=" + bestPower + ", error=" + bestError);
+        banana = {
+          x: startX,
+          y: startY,
+          vx: bestPower * Math.cos(bestAngle * Math.PI / 180) * -1,
+          vy: -bestPower * Math.sin(bestAngle * Math.PI / 180),
+          time: 0
+        };
+      }
+
+      // For computer AI: simulate a throw and return the minimum distance to the target.
+      function simulateThrow(sx, sy, target, angle, power) {
+        let rad = angle * Math.PI / 180;
+        let vx = power * Math.cos(rad) * -1;
+        let vy = -power * Math.sin(rad);
+        let simX = sx, simY = sy;
+        let minDist = Infinity;
+        for (let t = 0; t < SIM_MAX_TIME; t += SIM_TIME_STEP) {
+          simX += vx * SIM_TIME_STEP + 0.5 * wind * SIM_TIME_STEP * SIM_TIME_STEP;
+          vx += wind * SIM_TIME_STEP;
+          simY += vy * SIM_TIME_STEP + 0.5 * GRAVITY * SIM_TIME_STEP * SIM_TIME_STEP;
+          vy += GRAVITY * SIM_TIME_STEP;
+          let dx = simX - target.x, dy = simY - target.y;
+          let dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < minDist) minDist = dist;
+          if (simY > canvas.height || simX < 0 || simX > canvas.width) break;
+        }
+        return minDist;
+      }
+
+      // When a banana hits a building, add a crater to that building.
+      function applyExplosionToBuilding(b, hitX, hitY) {
+        createExplosion(hitX, hitY);
+        b.craters.push({ x: hitX, radius: CRATER_RADIUS });
+      }
+
+      // Create a temporary explosion visual effect.
+      function createExplosion(x, y) {
+        explosions.push({
+          x: x,
+          y: y,
+          radius: 0,
+          maxRadius: CRATER_RADIUS,
+          alpha: 1
+        });
+      }
+
+      function updateExplosions() {
+        for (let i = explosions.length - 1; i >= 0; i--) {
+          let exp = explosions[i];
+          exp.radius += 2;
+          exp.alpha -= 0.05;
+          if (exp.radius >= exp.maxRadius || exp.alpha <= 0) {
+            explosions.splice(i, 1);
+          }
+        }
+      }
+
+      // Update simulation: move the banana and check for collisions.
+      function update() {
+        if (banana) {
+          banana.time += TIME_STEP;
+          banana.x += banana.vx * TIME_STEP + 0.5 * wind * TIME_STEP * TIME_STEP;
+          banana.vx += wind * TIME_STEP;
+          banana.y += banana.vy * TIME_STEP + 0.5 * GRAVITY * TIME_STEP * TIME_STEP;
+          banana.vy += GRAVITY * TIME_STEP;
+          
+          // If the banana goes off the bottom.
+          if (banana.y >= canvas.height) {
+            banana = null;
+            nextTurn();
+            return;
+          }
+          
+          // Check collision with buildings using the effective surface.
+          if (banana.time > 0.5) {
+            for (let b of buildings) {
+              if (banana.x >= b.x && banana.x <= b.x + b.width) {
+                let surface = getSurface(b, banana.x);
+                if (banana.y >= surface) {
+                  applyExplosionToBuilding(b, banana.x, banana.y);
+                  banana = null;
+                  nextTurn();
+                  return;
+                }
+              }
+            }
+          }
+          
+          // Check collision with target gorilla.
+          let target = gorillas[1 - currentPlayer];
+          let dx = banana.x - target.x, dy = banana.y - target.y;
+          if (Math.sqrt(dx * dx + dy * dy) < 15) {
+            // Also damage the building on which the target stands.
+            for (let b of buildings) {
+              if (target.x >= b.x && target.x <= b.x + b.width) {
+                applyExplosionToBuilding(b, target.x, target.y);
+                break;
+              }
+            }
+            createExplosion(target.x, target.y);
+            let winner = (currentPlayer === 0) ? "Human" : "Computer";
+            alert(winner + " wins!");
+            resetGame();
+            return;
+          }
+        }
+      }
+
+      function nextTurn() {
+        currentPlayer = 1 - currentPlayer;
+        newTurn();
+      }
+
+      function resetGame() {
+        currentPlayer = 0;
+        generateBuildings();
+        placeGorillas();
+        newTurn();
+      }
+
+      // Draw a gorilla as a smiley face.
+      function drawGorilla(x, y, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y - 10, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "black";
+        ctx.beginPath();
+        ctx.arc(x - 3, y - 13, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x + 3, y - 13, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "black";
+        ctx.beginPath();
+        ctx.arc(x, y - 10, 6, 0.2 * Math.PI, 0.8 * Math.PI, false);
+        ctx.stroke();
+      }
+
+      // Main draw loop.
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw each building using its dynamic (damaged) surface.
+        for (let b of buildings) {
+          drawBuilding(b);
+        }
+
+        // Update each gorilla's vertical position based on its building.
+        for (let g of gorillas) {
+          for (let b of buildings) {
+            if (g.x >= b.x && g.x <= b.x + b.width) {
+              g.y = getSurface(b, g.x);
+              break;
+            }
+          }
+        }
+
+        // Draw gorillas.
+        drawGorilla(gorillas[0].x, gorillas[0].y, "lime");
+        drawGorilla(gorillas[1].x, gorillas[1].y, "orange");
+
+        // Draw the banana if in flight.
+        if (banana) {
+          ctx.fillStyle = "yellow";
+          ctx.beginPath();
+          ctx.arc(banana.x, banana.y, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Draw explosion visual effects.
+        for (let exp of explosions) {
+          ctx.save();
+          ctx.globalAlpha = exp.alpha;
+          ctx.fillStyle = "orange";
+          ctx.beginPath();
+          ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        updateExplosions();
+        update();
+        requestAnimationFrame(draw);
+      }
+
+      document.getElementById("throwBtn").addEventListener("click", throwBanana);
+      init();
+    })();
+  </script>
+</body>
+</html>
+

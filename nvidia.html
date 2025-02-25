@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix NVIDIA Graphics Switching Issue on Pop!_OS</title>
+</head>
+<body>
+    <h1>Fix NVIDIA Graphics Switching Issue on Pop!_OS</h1>
+    <p>
+        Hi, I understand the frustration you're experiencing with the graphics switching issue on Pop!_OS, especially with your NVIDIA 920M and version 470 drivers. This issue, where your system reverts to integrated graphics after a reboot, is related to how Pop!_OS manages hybrid graphics with PRIME (used for Optimus setups). It should automatically switch to the dedicated NVIDIA GPU when needed, but in your case, it seems to be reverting to the integrated GPU.
+    </p>
+    <p>
+        To resolve this, I recommend first checking that you're using the latest NVIDIA drivers. You can do so by updating your system with the following commands:
+    </p>
+    <pre><code>sudo apt update
+sudo apt upgrade
+sudo apt install nvidia-driver-470</code></pre>
+    <p>Alternatively, check if newer drivers are available with:</p>
+    <pre><code>sudo apt install system76-driver-nvidia</code></pre>
+    <p>
+        Next, confirm your PRIME configuration by running:
+    </p>
+    <pre><code>prime-select query</code></pre>
+    <p>
+        If it returns <code>intel</code>, you can switch to the NVIDIA GPU using:
+    </p>
+    <pre><code>sudo prime-select nvidia</code></pre>
+    <p>
+        After running this, reboot your machine to see if the NVIDIA GPU remains active. Additionally, you can check the NVIDIA X Server Settings and go to the "PRIME Profiles" section, ensuring that the NVIDIA option is selected. Save the settings and reboot.
+    </p>
+    <p>
+        If the issue persists, you can force the NVIDIA GPU on boot by modifying your GRUB config. Edit the <code>/etc/default/grub</code> file and append <code>nouveau.modeset=0</code> to the <code>GRUB_CMDLINE_LINUX_DEFAULT</code> line, like this:
+    </p>
+    <pre><code>GRUB_CMDLINE_LINUX_DEFAULT="quiet splash nouveau.modeset=0"</code></pre>
+    <p>
+        Then, update GRUB with:
+    </p>
+    <pre><code>sudo update-grub</code></pre>
+    <p>Reboot your system. If the issue still continues, try installing <strong>Optimus Manager</strong>, which gives more control over hybrid graphics:</p>
+    <pre><code>sudo apt install optimus-manager</code></pre>
+    <p>After installation, run:</p>
+    <pre><code>sudo optimus-manager --switch nvidia</code></pre>
+    <p>
+        This should switch to the NVIDIA GPU. If it works, you can set Optimus Manager to run at startup to ensure it uses the NVIDIA GPU on boot.
+    </p>
+    <p>
+        Make sure no conflicting software or drivers (such as <code>nouveau</code>) are active. If none of these methods work, consider trying a newer or older driver version (e.g., version 465). I hope this helps! If you're still experiencing issues, feel free to provide more details about any error messages or behavior, and I can assist you further.
+    </p>
+</body>
+</html>
+

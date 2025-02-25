@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Fedora Silverblue: Save & Switch OS Images</title>
+</head>
+<body>
+    <header>
+        <h1>Fedora Silverblue: Save & Switch OS Images</h1>
+    </header>
+    
+    <section>
+        <h2>Introduction</h2>
+        <p>Fedora Silverblue is an immutable desktop operating system designed to be reliable and stable. One of the core features of Fedora Silverblue is the ability to easily switch between different OS images (also known as system versions). This guide will show you how to save your current OS image and how to switch to a different image.</p>
+    </section>
+
+    <section>
+        <h2>1. Saving the Current OS Image</h2>
+        <p>Before making any changes, it’s a good idea to save your current OS image so that you can restore it later if necessary.</p>
+        <ol>
+            <li><strong>Open a Terminal window.</strong></li>
+            <li><strong>List available OS images:</strong> To view the available OS images, run the following command:</li>
+            <pre>ostree admin status</pre>
+            <p>This will display a list of the current and available OS versions.</p>
+            <li><strong>Create a backup of the current OS image:</strong> To save your current OS image, use the following command:</li>
+            <pre>sudo ostree admin snapshot --create-backup</pre>
+            <p>This command will create a snapshot of the current OS image. You can restore this snapshot later if needed.</p>
+        </ol>
+    </section>
+
+    <section>
+        <h2>2. Switching Between OS Images</h2>
+        <p>Fedora Silverblue allows you to switch between different OS images using the <code>ostree</code> tool. Here’s how you can switch to a different image:</p>
+        <ol>
+            <li><strong>List available OS images:</strong> As mentioned earlier, you can list available OS images with:</li>
+            <pre>ostree admin status</pre>
+            <p>This will show you the available OS images, including the current one.</p>
+            <li><strong>Switch to a new OS image:</strong> To switch to a different image, use the following command:</li>
+            <pre>sudo ostree admin switch <image-name></pre>
+            <p>Replace <code><image-name></code> with the image you want to switch to (e.g., <code>fedora/33/x86_64/silverblue</code>).</p>
+            <li><strong>Reboot to apply changes:</strong> After switching the image, reboot your system to apply the changes:</li>
+            <pre>sudo systemctl reboot</pre>
+        </ol>
+    </section>
+
+    <section>
+        <h2>3. Restoring the Backup Image</h2>
+        <p>If you ever need to restore the OS image you backed up earlier, you can do so by using the following steps:</p>
+        <ol>
+            <li><strong>Restore the backup image:</strong> Use this command to restore the snapshot you previously saved:</li>
+            <pre>sudo ostree admin restore-backup</pre>
+            <p>This will restore the system to the snapshot you created earlier.</p>
+            <li><strong>Reboot to apply the restored image:</strong> Finally, reboot your system:</li>
+            <pre>sudo systemctl reboot</pre>
+        </ol>
+    </section>
+
+    <section>
+        <h2>4. Additional Tips</h2>
+        <ul>
+            <li><strong>Using rollback:</strong> You can also roll back to a previous OS image if you don't want to restore a backup manually. Use the command:</li>
+            <pre>sudo ostree admin rollback</pre>
+            <li><strong>Check for updates:</strong> To make sure you are on the latest version of Fedora Silverblue, run:</li>
+            <pre>rpm-ostree update</pre>
+            <p>This will ensure that your system is up to date before switching or rolling back.</p>
+        </ul>
+    </section>
+
+    <footer>
+        <p>For more information on Fedora Silverblue, visit the official <a href="https://silverblue.fedoraproject.org/" target="_blank">Fedora Silverblue website</a>.</p>
+    </footer>
+</body>
+</html>
+

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linux Hardware Detection Commands</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        pre {
+            background-color: #ecf0f1;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .command {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Linux Hardware Detection Commands</h1>
+    
+    <h2>1. <span class="command">sudo lshw</span></h2>
+    <p>This command provides detailed information about the hardware configuration of the system, including CPU, memory, storage, network interfaces, and more. It is often used for comprehensive system analysis.</p>
+    <pre>
+        sudo lshw
+    </pre>
+
+    <h2>2. <span class="command">lscpu</span></h2>
+    <p>The <code>lscpu</code> command displays information about the CPU architecture, including the number of CPUs, cores, threads, model name, clock speed, and cache sizes.</p>
+    <pre>
+        lscpu
+    </pre>
+
+    <h2>3. <span class="command">lsblk</span></h2>
+    <p>The <code>lsblk</code> command lists information about block devices, such as hard drives, SSDs, partitions, and USB devices. It displays device names, sizes, types, and mount points.</p>
+    <pre>
+        lsblk
+    </pre>
+
+    <h2>4. <span class="command">lspci</span></h2>
+    <p>The <code>lspci</code> command shows information about PCI (Peripheral Component Interconnect) devices on the system, such as graphics cards, network adapters, and sound cards.</p>
+    <pre>
+        lspci
+    </pre>
+
+    <h2>5. <span class="command">lsusb</span></h2>
+    <p>The <code>lsusb</code> command displays information about USB devices connected to the system, such as printers, storage devices, and other peripherals.</p>
+    <pre>
+        lsusb
+    </pre>
+
+    <h2>6. <span class="command">free</span></h2>
+    <p>The <code>free</code> command provides a summary of the system's memory usage, including total, used, and free memory, as well as swap space utilization.</p>
+    <pre>
+        free -h
+    </pre>
+
+    <h2>7. <span class="command">df</span></h2>
+    <p>The <code>df</code> command reports the amount of disk space used and available on the file system. The <code>-h</code> option shows the output in a human-readable format (e.g., GB or MB).</p>
+    <pre>
+        df -h
+    </pre>
+
+    <h2>8. <span class="command">hwinfo</span></h2>
+    <p>The <code>hwinfo</code> command provides detailed information about the hardware components, including CPU, memory, network adapters, video cards, and more. It is similar to <code>lshw</code>, but with additional details.</p>
+    <pre>
+        sudo hwinfo
+    </pre>
+
+    <h2>9. <span class="command">dmesg</span></h2>
+    <p>The <code>dmesg</code> command prints the kernel ring buffer, which includes detailed system messages related to hardware events, such as device initialization and driver loading.</p>
+    <pre>
+        dmesg
+    </pre>
+
+    <h2>10. <span class="command">inxi</span></h2>
+    <p>The <code>inxi</code> command is a powerful tool for displaying comprehensive hardware information in a user-friendly format. It shows information about the system's CPU, memory, storage, network, and other peripherals.</p>
+    <pre>
+        inxi -Fxz
+    </pre>
+
+    <h2>11. <span class="command">lshw -short</span></h2>
+    <p>This is a short version of the <code>lshw</code> command that provides a condensed summary of hardware information, including details about CPU, memory, and devices.</p>
+    <pre>
+        sudo lshw -short
+    </pre>
+
+    <h2>12. <span class="command">watch -n 1 lspci</span></h2>
+    <p>The <code>watch</code> command allows you to continuously monitor the output of another command. In this case, it repeatedly runs <code>lspci</code> every second, allowing you to track changes in PCI devices.</p>
+    <pre>
+        watch -n 1 lspci
+    </pre>
+
+    <h2>13. <span class="command">cat /proc/cpuinfo</span></h2>
+    <p>This command displays detailed information about the CPU, including the number of cores, clock speed, architecture, and more. It retrieves the information from the <code>/proc/cpuinfo</code> file.</p>
+    <pre>
+        cat /proc/cpuinfo
+    </pre>
+
+    <h2>14. <span class="command">cat /proc/meminfo</span></h2>
+    <p>The <code>cat /proc/meminfo</code> command displays detailed information about system memory, including total memory, free memory, buffers, and swap usage.</p>
+    <pre>
+        cat /proc/meminfo
+    </pre>
+
+    <h2>15. <span class="command">uname -a</span></h2>
+    <p>The <code>uname -a</code> command prints information about the kernel, including the kernel version, system architecture, and operating system.</p>
+    <pre>
+        uname -a
+    </pre>
+
+    <h2>16. <span class="command">dmesg | grep -i error</span></h2>
+    <p>This command filters the <code>dmesg</code> output to show only error messages, helping you quickly identify potential hardware issues or problems with device drivers.</p>
+    <pre>
+        dmesg | grep -i error
+    </pre>
+
+</body>
+</html>
+
