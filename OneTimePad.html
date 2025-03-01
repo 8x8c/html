@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>One Time Pad Encrypt/Decrypt</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    textarea { width: 100%; height: 150px; margin: 10px 0; }
+    button { margin-right: 10px; padding: 10px 20px; }
+    .explanation { margin-top: 40px; padding: 20px; border-top: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h1>One Time Pad Encrypt/Decrypt</h1>
+  <p>
+    Enter your text and a key. The key must be at least as long as the text. For encryption, the text is treated as plaintext and the output is a hex-encoded ciphertext (using 4 hex digits per character). For decryption, input the hex ciphertext.
+  </p>
+  
+  <label for="inputText">Input Text (Plaintext for encryption, hex ciphertext for decryption):</label>
+  <textarea id="inputText"></textarea>
+  
+  <label for="keyInput">Key (must be at least as long as the text; any standard keyboard character is allowed):</label>
+  <textarea id="keyInput" placeholder="Extra key characters beyond the text length will be ignored"></textarea>
+  
+  <div>
+    <button onclick="encrypt()">Encrypt</button>
+    <button onclick="decrypt()">Decrypt</button>
+  </div>
+  
+  <label for="outputText">Output:</label>
+  <textarea id="outputText" readonly></textarea>
+  
+  <script>
+    // Validate the lengths:
+    // For encryption: key must be at least as long as the plaintext.
+    // For decryption: key must be at least as long as (ciphertext length / 4) since each character is encoded in 4 hex digits.
+    function validateLength(text, key, isDecrypt = false) {
+      if (isDecrypt) {
+        if (text.length % 4 !== 0) {
+          alert("For decryption, the ciphertext hex string length must be a multiple of 4.");
+          return false;
+        }
+        var expectedLength = text.length / 4;
+        if (key.length < expectedLength) {
+          alert("For decryption, the key must be at least as long as (ciphertext length / 4).");
+          return false;
+        }
+      } else {
+        if (text.length > key.length) {
+          alert("For encryption, the key must be at least as long as the text.");
+          return false;
+        }
+      }
+      return true;
+    }
+    
+    // Encrypt function: outputs a hex string (4 hex digits per character) representing the XOR result.
+    function encrypt() {
+      var inputText = document.getElementById("inputText").value;
+      var key = document.getElementById("keyInput").value;
+      
+      if (!validateLength(inputText, key)) return;
+      
+      var result = "";
+      // Only use the first inputText.length characters of the key.
+      for (var i = 0; i < inputText.length; i++) {
+        var plainChar = inputText.charCodeAt(i);
+        var keyChar = key.charCodeAt(i);
+        var encryptedChar = plainChar ^ keyChar;
+        // Convert to 4-digit hex (supporting the full 16-bit range)
+        var hex = encryptedChar.toString(16).padStart(4, '0');
+        result += hex;
+      }
+      document.getElementById("outputText").value = result;
+    }
+    
+    // Decrypt function: converts the hex string back to plaintext.
+    function decrypt() {
+      var inputText = document.getElementById("inputText").value;
+      var key = document.getElementById("keyInput").value;
+      
+      if (!validateLength(inputText, key, true)) return;
+      
+      var result = "";
+      // Use only the first (inputText.length / 4) characters of the key.
+      for (var i = 0; i < inputText.length / 4; i++) {
+        var hexPart = inputText.substr(i * 4, 4);
+        var encryptedChar = parseInt(hexPart, 16);
+        var keyChar = key.charCodeAt(i);
+        var plainChar = encryptedChar ^ keyChar;
+        result += String.fromCharCode(plainChar);
+      }
+      document.getElementById("outputText").value = result;
+    }
+  </script>
+  
+  <div class="explanation">
+    <h2>What is a One Time Pad?</h2>
+    <p>
+      A one time pad is an encryption technique that uses a key which is as long as the message itself. The method works by combining each character of the plaintext with a corresponding character from the key using a reversible operation—in this case, the XOR (exclusive OR) operation.
+    </p>
+    <p>
+      For a one time pad to be considered truly secure, the following conditions must be met:
+    </p>
+    <ul>
+      <li><strong>Truly Random Key:</strong> The key must be generated in a truly random manner.</li>
+      <li><strong>Key Length:</strong> The key must be at least as long as the plaintext. Extra key characters are ignored.</li>
+      <li><strong>Single Use:</strong> Each key must be used only once and then discarded.</li>
+      <li><strong>Secrecy:</strong> The key must be kept completely secret between the communicating parties.</li>
+      <li><strong>Allowed Characters:</strong> The key can include any character or symbol found on a standard keyboard.</li>
+      <li><strong>Case Sensitivity:</strong> The implementation is case sensitive. This means that uppercase and lowercase letters are treated as distinct characters (e.g., 'A' is different from 'a').</li>
+    </ul>
+    <p>
+      The implementation above demonstrates the core XOR operation behind a one time pad by performing an XOR between each character of the text and the corresponding character of the key. The result is represented as a hex string with 4 digits per character to support any Unicode character. However, while this code correctly performs the operation, it is for demonstration purposes only and does not handle secure key generation, distribution, or storage.
+    </p>
+    <p>
+      In summary, if you provide a truly random key that meets these requirements and use it only once, the encryption/decryption process here is essentially a one time pad. Otherwise, the theoretical unbreakability of the one time pad may not be achieved.
+    </p>
+  </div>
+</body>
+</html>
+
+
