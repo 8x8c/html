@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Combined Format Encryptor/Decryptor</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+    textarea { width: 100%; height: 100px; }
+    input, button { padding: 8px; margin: 5px 0; }
+    section { margin-bottom: 40px; }
+    pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Encryptor/Decryptor (Combined Format)</h1>
+  
+  <section id="encryption">
+    <h2>Encryption</h2>
+    <label for="plainMessage">Message:</label>
+    <textarea id="plainMessage" placeholder="Enter message to encrypt"></textarea>
+    
+    <label for="encryptPassword">Password:</label>
+    <input type="password" id="encryptPassword" placeholder="Enter encryption password">
+    
+    <button id="encryptBtn">Encrypt</button>
+    
+    <h3>Combined Encrypted Output:</h3>
+    <textarea id="combinedOutput" readonly placeholder="This will contain the combined salt, IV, and ciphertext (Base64)"></textarea>
+  </section>
+  
+  <section id="decryption">
+    <h2>Decryption</h2>
+    <label for="combinedInput">Combined Encrypted Message (Base64):</label>
+    <textarea id="combinedInput" placeholder="Paste the combined Base64 encrypted string here"></textarea>
+    
+    <label for="decryptPassword">Password:</label>
+    <input type="password" id="decryptPassword" placeholder="Enter decryption password">
+    
+    <button id="decryptBtn">Decrypt</button>
+    
+    <h3>Decrypted Message:</h3>
+    <textarea id="decryptedOutput" readonly></textarea>
+  </section>
+  
+  <script>
+    // Helper: Convert an ArrayBuffer to a Base64 string.
+    function arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary);
+    }
+    
+    // Helper: Convert a Base64 string to an ArrayBuffer.
+    function base64ToArrayBuffer(base64) {
+      const binary = window.atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+    
+    // Helper: Concatenates multiple ArrayBuffers into one.
+    function concatArrayBuffers(buffers) {
+      let totalLength = buffers.reduce((sum, buf) => sum + buf.byteLength, 0);
+      let temp = new Uint8Array(totalLength);
+      let offset = 0;
+      buffers.forEach((buf) => {
+        temp.set(new Uint8Array(buf), offset);
+        offset += buf.byteLength;
+      });
+      return temp.buffer;
+    }
+    
+    // Derives a key from the password and salt using PBKDF2.
+    async function deriveKey(password, salt) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(password),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: salt,
+          iterations: 100000,
+          hash: "SHA-256"
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+      );
+    }
+    
+    // Encrypts the message using AES-GCM and returns a single Base64 string.
+    async function encryptMessageCombined(message, password) {
+      const enc = new TextEncoder();
+      // Generate a 16-byte random salt.
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      // Derive the key using the salt.
+      const key = await deriveKey(password, salt);
+      // Generate a 12-byte random IV.
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      // Encrypt the message.
+      const ciphertext = await crypto.subtle.encrypt(
+        {
+          name: "AES-GCM",
+          iv: iv
+        },
+        key,
+        enc.encode(message)
+      );
+      // Combine salt, IV, and ciphertext into one ArrayBuffer.
+      const combinedBuffer = concatArrayBuffers([salt.buffer, iv.buffer, ciphertext]);
+      // Return the combined data as a Base64 string.
+      return arrayBufferToBase64(combinedBuffer);
+    }
+    
+    // Decrypts the message from the combined Base64 string.
+    async function decryptMessageCombined(combinedBase64, password) {
+      const combinedBuffer = base64ToArrayBuffer(combinedBase64);
+      // Extract salt (first 16 bytes), IV (next 12 bytes), and ciphertext (remaining bytes).
+      const salt = combinedBuffer.slice(0, 16);
+      const iv = combinedBuffer.slice(16, 28);
+      const ciphertext = combinedBuffer.slice(28);
+      
+      // Derive the key using the extracted salt.
+      const key = await deriveKey(password, new Uint8Array(salt));
+      
+      // Decrypt the ciphertext.
+      try {
+        const decrypted = await crypto.subtle.decrypt(
+          {
+            name: "AES-GCM",
+            iv: new Uint8Array(iv)
+          },
+          key,
+          ciphertext
+        );
+        return new TextDecoder().decode(decrypted);
+      } catch (err) {
+        throw new Error("Decryption failed. Possibly incorrect password or corrupted data.");
+      }
+    }
+    
+    // Set up event listener for the Encrypt button.
+    document.getElementById("encryptBtn").addEventListener("click", async () => {
+      const message = document.getElementById("plainMessage").value;
+      const password = document.getElementById("encryptPassword").value;
+      
+      if (!message || !password) {
+        alert("Please enter both a message and a password for encryption.");
+        return;
+      }
+      
+      try {
+        const combined = await encryptMessageCombined(message, password);
+        document.getElementById("combinedOutput").value = combined;
+      } catch (error) {
+        console.error(error);
+        alert("Encryption failed.");
+      }
+    });
+    
+    // Set up event listener for the Decrypt button.
+    document.getElementById("decryptBtn").addEventListener("click", async () => {
+      const combinedInput = document.getElementById("combinedInput").value;
+      const password = document.getElementById("decryptPassword").value;
+      
+      if (!combinedInput || !password) {
+        alert("Please enter both the combined encrypted string and the decryption password.");
+        return;
+      }
+      
+      try {
+        const decrypted = await decryptMessageCombined(combinedInput, password);
+        document.getElementById("decryptedOutput").value = decrypted;
+      } catch (error) {
+        console.error(error);
+        alert(error.message);
+      }
+    });
+  </script>
+  
+  <!-- Detailed Explanation -->
+  <section id="explanation">
+    <h2>Detailed Explanation of How This App Works</h2>
+    <pre>
+This app uses the browser's native Web Crypto API for both encryption and decryption, which means it
+relies on secure, vendor-optimized implementations rather than external JavaScript crypto libraries.
+
+How It Works:
+
+1. Key Derivation:
+   - A 16-byte random salt is generated.
+   - The user's password is processed with PBKDF2 (using SHA-256, 100,000 iterations) to derive a unique key.
+   - This ensures that even with the same password, the key will be unique if the salt is different.
+
+2. Encryption:
+   - A 12-byte random initialization vector (IV) is generated.
+   - AES-GCM is used to encrypt the plaintext message. AES-GCM offers both confidentiality and data integrity.
+   - The resulting encrypted data (ciphertext) is combined with the salt and IV.
+   - The salt, IV, and ciphertext are concatenated into one binary blob, which is then encoded as a single Base64 string.
+   - This combined format simplifies storage and transmission because all the parameters needed for decryption 
+     are contained in one string.
+
+3. Decryption:
+   - The Base64 string is decoded back into binary.
+   - The salt (first 16 bytes) and IV (next 12 bytes) are extracted.
+   - The same key derivation process is performed using the extracted salt and the provided password.
+   - The ciphertext (the remaining bytes) is then decrypted with AES-GCM using the derived key and extracted IV.
+   - If the password is correct and the data is intact, the original plaintext message is recovered.
+
+4. Security & Reliability:
+   - The native Web Crypto API is part of modern web standards and is maintained by browser vendors,
+     offering high performance and security.
+   - Relying on native implementations reduces dependencies and potential vulnerabilities associated
+     with external libraries.
+   - While theoretical changes to the API in the distant future could affect decryption,
+     the stability of web standards and backward compatibility make this risk very low.
+
+In summary, by embedding the salt and IV with the ciphertext in a single Base64 string,
+this app provides a user-friendly approach to encryption and decryption while leveraging secure,
+native browser functionality.
+    </pre>
+  </section>
+</body>
+</html>
+
