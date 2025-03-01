@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <title>Modern Message Encryptor/Decryptor</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
+    body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
     textarea { width: 100%; height: 100px; }
     input, button { padding: 8px; margin: 5px 0; }
     section { margin-bottom: 40px; }
+    pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
   </style>
 </head>
 <body>
@@ -115,7 +116,7 @@
     
     // Decrypts the message using AES-GCM.
     async function decryptMessage(encryptedJSON, password) {
-      const enc = new TextDecoder();
+      const dec = new TextDecoder();
       let encrypted;
       try {
         encrypted = JSON.parse(encryptedJSON);
@@ -145,7 +146,7 @@
           key,
           ciphertext
         );
-        return enc.decode(decrypted);
+        return dec.decode(decrypted);
       } catch (err) {
         throw new Error("Decryption failed. Possibly incorrect password or corrupted data.");
       }
@@ -189,7 +190,48 @@
       }
     });
   </script>
+  
+  <!-- Detailed Explanation -->
+  <section id="explanation">
+    <h2>Detailed Explanation of How This App Works</h2>
+    <pre>
+This app leverages the built-in Web Crypto API available in modern browsers, meaning it does not rely on any external
+JavaScript crypto libraries (like AES libraries). Here’s a breakdown of its components and operations:
+
+1. Key Derivation:
+   - The password provided by the user is converted into a cryptographic key using PBKDF2.
+   - A 16-byte random salt is generated to ensure that even if the same password is used, the derived key is unique.
+   - PBKDF2 applies a hash function (SHA-256) repeatedly (100,000 iterations in this case) to the password and salt,
+     which helps protect against brute-force attacks.
+
+2. Encryption:
+   - After deriving the key, the app generates a 12-byte random initialization vector (IV).
+   - AES-GCM (Galois/Counter Mode) is used for encryption. AES-GCM not only encrypts the data but also
+     provides integrity verification, ensuring the ciphertext has not been tampered with.
+   - The plaintext message is then encrypted with the derived key, the IV, and AES-GCM.
+   - The resulting encrypted data (ciphertext), along with the salt and IV, is encoded in Base64 and output as a
+     JSON object. This format makes it easy to store or transfer the encrypted message.
+
+3. Decryption:
+   - For decryption, the user inputs the JSON output along with the same password.
+   - The app decodes the Base64 values back into binary (ArrayBuffers) and re-derives the same key using the salt and
+     password.
+   - It then uses the key and IV to decrypt the ciphertext with AES-GCM.
+   - If the password is correct and the data hasn’t been altered, the original plaintext is recovered.
+
+4. Security & Reliability:
+   - The Web Crypto API is built into the browser and implemented by browser vendors, often using optimized, native
+     code. This results in a performance and security advantage compared to pure JavaScript libraries.
+   - Native implementations are generally audited, maintained, and are less susceptible to common pitfalls that might
+     affect external libraries.
+   - By using AES-GCM with PBKDF2, the encryption scheme provides both confidentiality and integrity of the data.
+
+In summary, by utilizing the Web Crypto API, this app benefits from a secure, reliable, and efficient cryptographic
+implementation directly from the browser, reducing dependencies and potential vulnerabilities from external libraries.
+    </pre>
+  </section>
 </body>
 </html>
+
 
 
