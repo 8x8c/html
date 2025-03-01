@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Enhanced One Time Pad Encrypt/Decrypt - File Version</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .file-input { margin: 10px 0; }
+    button { margin-right: 10px; padding: 10px 20px; }
+    #downloadLink { margin-top: 20px; }
+    .explanation { margin-top: 40px; padding: 20px; border-top: 1px solid #ccc; }
+    pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Enhanced One Time Pad Encrypt/Decrypt (File Version)</h1>
+  
+  <div class="file-input">
+    <label for="inputFile">
+      Input File (Plaintext for encryption, or encrypted file for decryption):
+    </label>
+    <input type="file" id="inputFile">
+  </div>
+  
+  <div class="file-input">
+    <label for="keyFile">
+      Key File (Raw binary key; must be at least as long as the input file for encryption).
+    </label>
+    <input type="file" id="keyFile">
+  </div>
+  
+  <div>
+    <button onclick="encrypt()">Encrypt</button>
+    <button onclick="decrypt()">Decrypt</button>
+  </div>
+  
+  <div id="downloadLink"></div>
+  
+  <script>
+    // Helper: Read a file as an ArrayBuffer.
+    function readFileAsArrayBuffer(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = event => resolve(event.target.result);
+        reader.onerror = event => reject(event.target.error);
+        reader.readAsArrayBuffer(file);
+      });
+    }
+    
+    // Generate a secure random IV of the specified length (in bytes)
+    function generateIV(length) {
+      const iv = new Uint8Array(length);
+      window.crypto.getRandomValues(iv);
+      return iv;
+    }
+    
+    // Encrypt: Reads the plaintext file and key file, generates an IV, performs XOR encryption,
+    // and outputs a file whose content is the concatenation of IV || ciphertext.
+    async function encrypt() {
+      const inputFileElem = document.getElementById("inputFile");
+      const keyFileElem = document.getElementById("keyFile");
+      
+      if (!inputFileElem.files[0] || !keyFileElem.files[0]) {
+        alert("Please select both an input file and a key file.");
+        return;
+      }
+      
+      const inputBuffer = await readFileAsArrayBuffer(inputFileElem.files[0]);
+      const keyBuffer = await readFileAsArrayBuffer(keyFileElem.files[0]);
+      
+      const plaintext = new Uint8Array(inputBuffer);
+      const key = new Uint8Array(keyBuffer);
+      
+      // The key must be at least as long as the plaintext.
+      if (plaintext.length > key.length) {
+        alert("For encryption, the key file must be at least as long as the input file.");
+        return;
+      }
+      
+      // Use only the first plaintext.length bytes from the key.
+      const keyUsed = key.slice(0, plaintext.length);
+      
+      // Generate a random IV of the same length as the plaintext.
+      const iv = generateIV(plaintext.length);
+      
+      // Encrypt: For each byte: ciphertext = plaintext XOR keyUsed XOR IV.
+      const ciphertext = new Uint8Array(plaintext.length);
+      for (let i = 0; i < plaintext.length; i++) {
+        ciphertext[i] = plaintext[i] ^ keyUsed[i] ^ iv[i];
+      }
+      
+      // Create an output file: prepend the IV (needed for decryption) to the ciphertext.
+      const outputBuffer = new Uint8Array(iv.length + ciphertext.length);
+      outputBuffer.set(iv, 0);
+      outputBuffer.set(ciphertext, iv.length);
+      
+      const blob = new Blob([outputBuffer]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = inputFileElem.files[0].name + ".enc";
+      a.textContent = "Download Encrypted File";
+      
+      const downloadLink = document.getElementById("downloadLink");
+      downloadLink.innerHTML = "";
+      downloadLink.appendChild(a);
+    }
+    
+    // Decrypt: Reads the encrypted file and key file, extracts the IV from the beginning of the file,
+    // then XORs to recover the original plaintext.
+    async function decrypt() {
+      const inputFileElem = document.getElementById("inputFile");
+      const keyFileElem = document.getElementById("keyFile");
+      
+      if (!inputFileElem.files[0] || !keyFileElem.files[0]) {
+        alert("Please select both an input file and a key file.");
+        return;
+      }
+      
+      const inputBuffer = await readFileAsArrayBuffer(inputFileElem.files[0]);
+      const keyBuffer = await readFileAsArrayBuffer(keyFileElem.files[0]);
+      
+      const encryptedData = new Uint8Array(inputBuffer);
+      const key = new Uint8Array(keyBuffer);
+      
+      // The encrypted file should consist of an IV followed by ciphertext.
+      // Here, we assume the IV is exactly half the length of the file.
+      if (encryptedData.length % 2 !== 0) {
+        alert("The input file is not valid (its length is not even, so it cannot contain a valid IV and ciphertext).");
+        return;
+      }
+      
+      const plaintextLength = encryptedData.length / 2;
+      // The key must be at least as long as the plaintext.
+      if (key.length < plaintextLength) {
+        alert("For decryption, the key file must be at least as long as the plaintext (derived from half the encrypted file's length).");
+        return;
+      }
+      
+      // Use only the first plaintextLength bytes of the key.
+      const keyUsed = key.slice(0, plaintextLength);
+      const iv = encryptedData.slice(0, plaintextLength);
+      const ciphertext = encryptedData.slice(plaintextLength);
+      
+      const plaintext = new Uint8Array(plaintextLength);
+      for (let i = 0; i < plaintextLength; i++) {
+        plaintext[i] = ciphertext[i] ^ keyUsed[i] ^ iv[i];
+      }
+      
+      const blob = new Blob([plaintext]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      // Optionally, remove a trailing ".enc" from the original filename.
+      a.download = inputFileElem.files[0].name.replace(/\.enc$/, '') + ".dec";
+      a.textContent = "Download Decrypted File";
+      
+      const downloadLink = document.getElementById("downloadLink");
+      downloadLink.innerHTML = "";
+      downloadLink.appendChild(a);
+    }
+  </script>
+  
+  <div class="explanation">
+    <h2>Comprehensive Explanation of the App</h2>
+    <p>
+      This web application is a file-based encryption/decryption tool that implements an enhanced one time pad (OTP) mechanism. Unlike traditional text-based implementations, this version supports raw binary data, allowing you to encrypt and decrypt any type of file using a key file that contains raw binary values.
+    </p>
+    
+    <h3>How the Application Works</h3>
+    <p>
+      The app operates entirely in the browser using HTML5 and JavaScript. It provides a user-friendly interface with file input elements for selecting both the input file (which can be plaintext for encryption or a ciphertext file for decryption) and the key file.
+    </p>
+    
+    <h3>Encryption Process</h3>
+    <ul>
+      <li>
+        <strong>File Uploads:</strong> The user selects a plaintext file and a key file. The key file must be at least as large as the plaintext file to ensure secure encryption.
+      </li>
+      <li>
+        <strong>Generating the IV:</strong> A cryptographically secure random initialization vector (IV) is generated using <code>window.crypto.getRandomValues</code>. The IV is exactly the same size as the plaintext file. Although a pure OTP does not require an IV, including one adds an extra layer of security by ensuring that encrypting the same file multiple times (even with the same key) produces different ciphertexts.
+      </li>
+      <li>
+        <strong>XOR Operation:</strong> For each byte of the plaintext, the application computes:
+        <br>
+        <code>encryptedByte = plaintextByte XOR keyByte XOR ivByte</code>
+        <br>
+        This operation ensures that the encryption is reversible—applying the same XOR process with the identical key and IV during decryption will recover the original plaintext.
+      </li>
+      <li>
+        <strong>Output File Structure:</strong> The resulting encrypted file is created by concatenating the IV with the ciphertext. The IV is prepended to the ciphertext because it is necessary for decryption.
+      </li>
+    </ul>
+    
+    <h3>Decryption Process</h3>
+    <ul>
+      <li>
+        <strong>File Uploads:</strong> For decryption, the user selects the encrypted file (which contains both the IV and ciphertext) along with the corresponding key file.
+      </li>
+      <li>
+        <strong>Extracting the IV:</strong> The application divides the encrypted file into two equal parts. The first half, corresponding to the IV, is extracted and converted back to its raw binary form.
+      </li>
+      <li>
+        <strong>Reversing the XOR Operation:</strong> Using the extracted IV and the key file (limited to the necessary length), the tool reverses the XOR process on the ciphertext, thereby recovering the original plaintext.
+      </li>
+      <li>
+        <strong>Downloadable Output:</strong> The decrypted plaintext is then converted into a downloadable file, allowing you to easily retrieve the original content.
+      </li>
+    </ul>
+    
+    <h3>Security Considerations</h3>
+    <ul>
+      <li>
+        <strong>One Time Pad Principles:</strong> The security of an OTP relies on the key being truly random, at least as long as the plaintext, used only once, and kept secret. This app enforces that principle by requiring the key file to be as large as the file being encrypted or decrypted.
+      </li>
+      <li>
+        <strong>Enhanced with a Random IV:</strong> Although a traditional OTP does not need an IV, the inclusion of a random IV in this implementation further ensures that identical files encrypted with the same key will produce different ciphertexts, mitigating risks from accidental key reuse.
+      </li>
+      <li>
+        <strong>Raw Binary Support:</strong> The tool processes data at the byte level, making it suitable for any file type—text, images, videos, or executables. This flexibility is achieved by handling both the plaintext and key as raw binary data.
+      </li>
+    </ul>
+    
+    <h3>Technical Implementation</h3>
+    <p>
+      The application leverages modern web APIs for its core functionalities:
+    </p>
+    <ul>
+      <li>
+        <strong>FileReader API:</strong> Reads the uploaded files as ArrayBuffers, enabling manipulation of raw binary data.
+      </li>
+      <li>
+        <strong>Crypto API:</strong> Uses <code>window.crypto.getRandomValues</code> to generate a secure random IV.
+      </li>
+      <li>
+        <strong>Blob and URL APIs:</strong> Converts processed binary data into downloadable files, allowing the user to easily retrieve encrypted or decrypted content.
+      </li>
+    </ul>
+    
+    <h3>Usage Scenarios</h3>
+    <p>
+      This tool is ideal for educational purposes and for scenarios where secure file encryption is needed using a one time pad method. Its design demonstrates how classical cryptographic concepts can be effectively implemented using modern web technologies. However, for production-level security, ensure that key management and file handling follow industry best practices.
+    </p>
+    
+    <p>
+      <em>Note:</em> While this application provides a solid demonstration of file-based OTP encryption/decryption, real-world security applications require careful consideration of key generation, storage, and management to maintain overall security.
+    </p>
+  </div>
+</body>
+</html>
+
+
