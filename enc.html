@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Modern Message Encryptor</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    textarea { width: 100%; height: 100px; }
+    input, button { padding: 8px; margin: 5px 0; }
+  </style>
+</head>
+<body>
+  <h1>Modern Message Encryptor</h1>
+  <label for="message">Message:</label>
+  <textarea id="message" placeholder="Enter message to encrypt"></textarea>
+  
+  <label for="password">Password:</label>
+  <input type="password" id="password" placeholder="Enter encryption password">
+  
+  <button id="encryptBtn">Encrypt</button>
+  
+  <h2>Encrypted Output:</h2>
+  <textarea id="output" readonly></textarea>
+  
+  <script>
+    // Convert an ArrayBuffer to a Base64 string.
+    function arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary);
+    }
+    
+    // Derives a key from the password and salt using PBKDF2.
+    async function deriveKey(password, salt) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(password),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: salt,
+          iterations: 100000,
+          hash: "SHA-256"
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+      );
+    }
+    
+    // Encrypts the message using AES-GCM.
+    async function encryptMessage(message, password) {
+      const enc = new TextEncoder();
+      // Generate a 16-byte random salt.
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      // Derive the key.
+      const key = await deriveKey(password, salt);
+      // Generate a 12-byte random IV.
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      // Encrypt the message.
+      const ciphertext = await crypto.subtle.encrypt(
+        {
+          name: "AES-GCM",
+          iv: iv
+        },
+        key,
+        enc.encode(message)
+      );
+      
+      // Return the encrypted components in Base64.
+      return {
+        salt: arrayBufferToBase64(salt),
+        iv: arrayBufferToBase64(iv),
+        ciphertext: arrayBufferToBase64(ciphertext)
+      };
+    }
+    
+    // Set up the click event for the Encrypt button.
+    document.getElementById("encryptBtn").addEventListener("click", async () => {
+      const message = document.getElementById("message").value;
+      const password = document.getElementById("password").value;
+      
+      if (!message || !password) {
+        alert("Please enter both a message and a password.");
+        return;
+      }
+      
+      try {
+        const encrypted = await encryptMessage(message, password);
+        document.getElementById("output").value = JSON.stringify(encrypted, null, 2);
+      } catch (error) {
+        console.error(error);
+        alert("Encryption failed.");
+      }
+    });
+  </script>
+</body>
+</html>
+
