@@ -1,9 +1,10 @@
 
+
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>One Time Pad Encrypt/Decrypt with Full-Length IV</title>
+  <title>Enhanced One Time Pad Encrypt/Decrypt</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
     textarea { width: 100%; height: 150px; margin: 10px 0; }
@@ -12,9 +13,9 @@
   </style>
 </head>
 <body>
-  <h1>One Time Pad Encrypt/Decrypt with Full-Length IV</h1>
+  <h1>Enhanced One Time Pad Encrypt/Decrypt</h1>
   <p>
-    Enter your text and a key. The key must be at least as long as the text. In this version, the IV is generated to be as long as the plaintext so that each character is combined with a unique random value. For encryption, the plaintext is XORed with both the key and a full-length random IV, and the output is a hex-encoded ciphertext (using 4 hex digits per character). The IV (encoded in hex) is prepended to the ciphertext so that decryption is possible.
+    Enter your text and a key. The key must be at least as long as the text. In this version, a random IV (initialization vector) is generated that is as long as the plaintext. For encryption, each character of the plaintext is XORed with the corresponding character of both the key and the IV. The IV (in hex) is prepended to the ciphertext so decryption is possible.
   </p>
   
   <label for="inputText">Input Text (Plaintext for encryption, hex ciphertext for decryption):</label>
@@ -32,7 +33,7 @@
   <textarea id="outputText" readonly></textarea>
   
   <script>
-    // Generate a secure random IV with a given length (number of characters)
+    // Generate a secure random IV with the given length (number of characters)
     function generateIV(length) {
       const ivArray = new Uint8Array(length);
       window.crypto.getRandomValues(ivArray);
@@ -42,8 +43,8 @@
       }
       return iv;
     }
-
-    // Convert a string into a hex string (4 hex digits per character)
+  
+    // Convert a string to a hex string (4 hex digits per character)
     function toHex(str) {
       let hex = "";
       for (let i = 0; i < str.length; i++) {
@@ -51,8 +52,8 @@
       }
       return hex;
     }
-
-    // Convert a hex string back to a normal string (assumes 4 hex digits per character)
+  
+    // Convert a hex string back to a string (assumes 4 hex digits per character)
     function fromHex(hexStr) {
       let str = "";
       for (let i = 0; i < hexStr.length; i += 4) {
@@ -60,20 +61,28 @@
       }
       return str;
     }
-
+  
     // Validate lengths:
-    // - For encryption: key must be at least as long as the plaintext.
-    // - For decryption: the ciphertext hex must have a total length that is divisible by 8,
-    //   because the first half is the IV and the second half is the encrypted message.
+    // For encryption: key must be at least as long as the plaintext.
+    // For decryption: the ciphertext must include the IV (first part) plus the message,
+    // and the key must be at least as long as the plaintext (which equals the IV length).
     function validateLength(text, key, isDecrypt = false) {
       if (isDecrypt) {
-        if (text.length % 8 !== 0) {
-          alert("For decryption, the total ciphertext length (IV + message) must be a multiple of 8 hex digits.");
+        // For decryption, the ciphertext consists of an IV and encrypted message.
+        // Since we encode each character as 4 hex digits, the IV length in hex is:
+        let ivHexLength = key.length * 4;  // because we assume key length equals plaintext length.
+        if (text.length < ivHexLength) {
+          alert("Ciphertext is too short to contain the IV.");
           return false;
         }
-        let n = text.length / 8; // plaintext length (and IV length)
-        if (key.length < n) {
-          alert("For decryption, the key must be at least as long as the plaintext (derived from ciphertext length).");
+        let messageHexLength = text.length - ivHexLength;
+        if (messageHexLength % 4 !== 0) {
+          alert("The encrypted message must be a multiple of 4 hex digits.");
+          return false;
+        }
+        let plaintextLength = messageHexLength / 4;
+        if (key.length < plaintextLength) {
+          alert("For decryption, the key must be at least as long as the plaintext.");
           return false;
         }
       } else {
@@ -84,10 +93,10 @@
       }
       return true;
     }
-
-    // Encrypt: generate an IV that is exactly as long as the plaintext.
-    // For each character: encryptedChar = plaintextChar XOR keyChar XOR ivChar.
-    // Output = IV (in hex) concatenated with encrypted message (in hex).
+  
+    // Encrypt: Generate an IV as long as the plaintext.
+    // For each character: ciphertextChar = plaintextChar XOR keyChar XOR ivChar.
+    // The output is the IV (in hex) concatenated with the ciphertext (in hex).
     function encrypt() {
       const plaintext = document.getElementById("inputText").value;
       const key = document.getElementById("keyInput").value;
@@ -96,39 +105,43 @@
       
       const iv = generateIV(plaintext.length);
       const ivHex = toHex(iv);
-      
+  
       let encryptedHex = "";
       for (let i = 0; i < plaintext.length; i++) {
-        let plainChar = plaintext.charCodeAt(i);
-        let keyChar = key.charCodeAt(i);
-        let ivChar = iv.charCodeAt(i);
-        let encryptedChar = plainChar ^ keyChar ^ ivChar;
+        const plainChar = plaintext.charCodeAt(i);
+        const keyChar = key.charCodeAt(i);
+        const ivChar = iv.charCodeAt(i);
+        const encryptedChar = plainChar ^ keyChar ^ ivChar;
         encryptedHex += encryptedChar.toString(16).padStart(4, '0');
       }
-      
+  
       // Prepend the IV (in hex) to the encrypted message.
       document.getElementById("outputText").value = ivHex + encryptedHex;
     }
-
-    // Decrypt: extract the full-length IV and then decrypt the remaining ciphertext.
+  
+    // Decrypt: Extract the IV from the beginning of the ciphertext,
+    // then use it along with the key to recover the plaintext.
     function decrypt() {
       const inputText = document.getElementById("inputText").value;
       const key = document.getElementById("keyInput").value;
-      
+  
       if (!validateLength(inputText, key, true)) return;
       
-      let n = inputText.length / 8; // n = plaintext length (and IV length)
-      const ivHex = inputText.substring(0, n * 4);
+      // Determine plaintext length from the key (and IV length in hex)
+      let plaintextLength = key.length;
+      let ivHexLength = plaintextLength * 4;
+  
+      const ivHex = inputText.substring(0, ivHexLength);
       const iv = fromHex(ivHex);
-      const encryptedHex = inputText.substring(n * 4);
-      
+      const encryptedHex = inputText.substring(ivHexLength);
+  
       let decryptedText = "";
-      for (let i = 0; i < n; i++) {
-        let hexPart = encryptedHex.substr(i * 4, 4);
-        let encryptedChar = parseInt(hexPart, 16);
-        let keyChar = key.charCodeAt(i);
-        let ivChar = iv.charCodeAt(i);
-        let plainChar = encryptedChar ^ keyChar ^ ivChar;
+      for (let i = 0; i < plaintextLength; i++) {
+        const hexPart = encryptedHex.substr(i * 4, 4);
+        const encryptedChar = parseInt(hexPart, 16);
+        const keyChar = key.charCodeAt(i);
+        const ivChar = iv.charCodeAt(i);
+        const plainChar = encryptedChar ^ keyChar ^ ivChar;
         decryptedText += String.fromCharCode(plainChar);
       }
       document.getElementById("outputText").value = decryptedText;
@@ -136,32 +149,28 @@
   </script>
   
   <div class="explanation">
-    <h2>What is a One Time Pad?</h2>
+    <h2>What is an Enhanced One Time Pad?</h2>
     <p>
-      A one time pad is an encryption technique that uses a key that is as long as the message itself. The method works by combining each character of the plaintext with a corresponding character from the key using a reversible operation—in this case, the XOR (exclusive OR) operation.
+      A one time pad (OTP) is an encryption technique where the key is as long as the message and is used only once. The encryption works by XORing each character of the plaintext with the corresponding character from the key, ensuring perfect secrecy if the key is truly random and never reused.
     </p>
     <p>
-      For a one time pad to be considered truly secure, the following conditions must be met:
+      In this enhanced version, a random IV (initialization vector) is generated that is exactly as long as the plaintext. The encryption process now XORs three values for each character:
     </p>
     <ul>
-      <li><strong>Truly Random Key:</strong> The key must be generated in a truly random manner.</li>
-      <li><strong>Key Length:</strong> The key must be at least as long as the plaintext. Extra key characters are ignored.</li>
-      <li><strong>Single Use:</strong> Each key must be used only once and then discarded.</li>
-      <li><strong>Secrecy:</strong> The key must be kept completely secret between the communicating parties.</li>
-      <li><strong>Allowed Characters:</strong> The key can include any character or symbol found on a standard keyboard.</li>
-      <li><strong>Case Sensitivity:</strong> The encryption is case sensitive, meaning uppercase and lowercase letters are treated as distinct.</li>
+      <li><strong>Plaintext character</strong></li>
+      <li><strong>Key character</strong></li>
+      <li><strong>IV character</strong></li>
     </ul>
     <p>
-      <strong>Enhancement with a Full-Length IV:</strong> In our implementation we add an IV (initialization vector) to introduce randomness so that even if the same plaintext and key are used more than once, the ciphertext will be different. Unlike a fixed, repeating IV, here the IV is generated to be as long as the plaintext. This is considered the best approach in this context because it ensures that every character is XORed with a unique random value – there is no cyclic repetition of the IV. The IV is generated using the browser’s cryptographically secure API, ensuring high-quality randomness.
+      The encryption is thus computed as: <code>ciphertextChar = plaintextChar XOR keyChar XOR ivChar</code>
     </p>
     <p>
-      <em>Note:</em> In a true one time pad, if the key is perfectly random, kept secret, and used only once, perfect secrecy is already achieved. The addition of an IV in this implementation primarily guards against accidental key reuse or scenarios where similar plaintexts and keys might be used. It does not fundamentally change the security of a proper one time pad, but it does improve the unpredictability of the ciphertext output in practical applications.
+      The IV is generated using a cryptographically secure random number generator, ensuring high-quality randomness. The resulting ciphertext is stored as a hex string with the IV (also in hex) prepended to the encrypted message.
     </p>
     <p>
-      In summary, using an IV that is as long as the plaintext avoids any repetition and maximizes randomness. However, the overall security of a one time pad relies on having a truly random key that is never reused.
+      This scheme remains a one time pad when used properly (i.e., with a truly random key, used only once, and kept secret). The addition of the IV in this implementation is an enhancement that helps prevent issues like key reuse or predictable outputs in case of similar plaintext-key pairs. Essentially, the IV helps randomize the ciphertext further, providing an extra safeguard against human error while still maintaining the theoretical perfect secrecy of a one time pad.
     </p>
   </div>
 </body>
 </html>
-
 
