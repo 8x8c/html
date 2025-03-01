@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Modern Message Encryptor/Decryptor</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    textarea { width: 100%; height: 100px; }
+    input, button { padding: 8px; margin: 5px 0; }
+    section { margin-bottom: 40px; }
+  </style>
+</head>
+<body>
+  <h1>Modern Message Encryptor/Decryptor</h1>
+  
+  <section id="encryption">
+    <h2>Encryption</h2>
+    <label for="plainMessage">Message:</label>
+    <textarea id="plainMessage" placeholder="Enter message to encrypt"></textarea>
+    
+    <label for="encryptPassword">Password:</label>
+    <input type="password" id="encryptPassword" placeholder="Enter encryption password">
+    
+    <button id="encryptBtn">Encrypt</button>
+    
+    <h3>Encrypted Output (JSON):</h3>
+    <textarea id="encryptedOutput" readonly></textarea>
+  </section>
+  
+  <section id="decryption">
+    <h2>Decryption</h2>
+    <label for="encryptedInput">Encrypted Message (JSON):</label>
+    <textarea id="encryptedInput" placeholder='Paste the encrypted JSON here'></textarea>
+    
+    <label for="decryptPassword">Password:</label>
+    <input type="password" id="decryptPassword" placeholder="Enter decryption password">
+    
+    <button id="decryptBtn">Decrypt</button>
+    
+    <h3>Decrypted Message:</h3>
+    <textarea id="decryptedOutput" readonly></textarea>
+  </section>
+  
+  <script>
+    // Helper: Convert an ArrayBuffer to a Base64 string.
+    function arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary);
+    }
+    
+    // Helper: Convert a Base64 string to an ArrayBuffer.
+    function base64ToArrayBuffer(base64) {
+      const binary = window.atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+    
+    // Derives a key from the password and salt using PBKDF2.
+    async function deriveKey(password, salt) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(password),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: salt,
+          iterations: 100000,
+          hash: "SHA-256"
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+      );
+    }
+    
+    // Encrypts the message using AES-GCM.
+    async function encryptMessage(message, password) {
+      const enc = new TextEncoder();
+      // Generate a 16-byte random salt.
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      // Derive the key.
+      const key = await deriveKey(password, salt);
+      // Generate a 12-byte random IV.
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      // Encrypt the message.
+      const ciphertext = await crypto.subtle.encrypt(
+        {
+          name: "AES-GCM",
+          iv: iv
+        },
+        key,
+        enc.encode(message)
+      );
+      
+      // Return the encrypted components in Base64.
+      return {
+        salt: arrayBufferToBase64(salt),
+        iv: arrayBufferToBase64(iv),
+        ciphertext: arrayBufferToBase64(ciphertext)
+      };
+    }
+    
+    // Decrypts the message using AES-GCM.
+    async function decryptMessage(encryptedJSON, password) {
+      const enc = new TextDecoder();
+      let encrypted;
+      try {
+        encrypted = JSON.parse(encryptedJSON);
+      } catch (e) {
+        throw new Error("Invalid JSON format.");
+      }
+      
+      if (!encrypted.salt || !encrypted.iv || !encrypted.ciphertext) {
+        throw new Error("Missing required encryption parameters.");
+      }
+      
+      // Decode the Base64 values back to ArrayBuffers.
+      const salt = new Uint8Array(base64ToArrayBuffer(encrypted.salt));
+      const iv = new Uint8Array(base64ToArrayBuffer(encrypted.iv));
+      const ciphertext = base64ToArrayBuffer(encrypted.ciphertext);
+      
+      // Derive the key.
+      const key = await deriveKey(password, salt);
+      
+      // Decrypt the ciphertext.
+      try {
+        const decrypted = await crypto.subtle.decrypt(
+          {
+            name: "AES-GCM",
+            iv: iv
+          },
+          key,
+          ciphertext
+        );
+        return enc.decode(decrypted);
+      } catch (err) {
+        throw new Error("Decryption failed. Possibly incorrect password or corrupted data.");
+      }
+    }
+    
+    // Set up event listener for the Encrypt button.
+    document.getElementById("encryptBtn").addEventListener("click", async () => {
+      const message = document.getElementById("plainMessage").value;
+      const password = document.getElementById("encryptPassword").value;
+      
+      if (!message || !password) {
+        alert("Please enter both a message and a password for encryption.");
+        return;
+      }
+      
+      try {
+        const encrypted = await encryptMessage(message, password);
+        document.getElementById("encryptedOutput").value = JSON.stringify(encrypted, null, 2);
+      } catch (error) {
+        console.error(error);
+        alert("Encryption failed.");
+      }
+    });
+    
+    // Set up event listener for the Decrypt button.
+    document.getElementById("decryptBtn").addEventListener("click", async () => {
+      const encryptedJSON = document.getElementById("encryptedInput").value;
+      const password = document.getElementById("decryptPassword").value;
+      
+      if (!encryptedJSON || !password) {
+        alert("Please enter both the encrypted JSON and the decryption password.");
+        return;
+      }
+      
+      try {
+        const decrypted = await decryptMessage(encryptedJSON, password);
+        document.getElementById("decryptedOutput").value = decrypted;
+      } catch (error) {
+        console.error(error);
+        alert(error.message);
+      }
+    });
+  </script>
+</body>
+</html>
+
+
