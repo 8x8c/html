@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Textboard with Dexie.js</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      width: 90%;
+      max-width: 600px;
+      margin: 20px auto;
+      background: #fff;
+      border-radius: 4px;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 20px;
+    }
+    form input[type="text"],
+    form textarea {
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    form button {
+      padding: 10px;
+      background: #007BFF;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    form button:hover {
+      background: #0056b3;
+    }
+    .post {
+      border-bottom: 1px solid #ccc;
+      padding: 10px 0;
+    }
+    .post:last-child {
+      border-bottom: none;
+    }
+    .post h3 {
+      margin: 0 0 5px;
+    }
+    .post p {
+      margin: 0;
+    }
+    .timestamp {
+      font-size: 0.8em;
+      color: #777;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Textboard</h1>
+    <form id="postForm">
+      <input type="text" id="subject" placeholder="Subject" required>
+      <textarea id="message" rows="4" placeholder="Enter your message" required></textarea>
+      <button type="submit">Post</button>
+    </form>
+    <div id="posts"></div>
+  </div>
+
+  <!-- Include Dexie.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/dexie@3/dist/dexie.min.js"></script>
+  <script>
+    // Initialize the Dexie database
+    const db = new Dexie("TextboardDB");
+    db.version(1).stores({
+      posts: '++id, subject, message, timestamp'
+    });
+
+    // Function to load posts and display them in descending order by timestamp
+    async function loadPosts() {
+      const postsContainer = document.getElementById('posts');
+      postsContainer.innerHTML = '';
+      // Query posts sorted by timestamp in reverse order (newest first)
+      const posts = await db.posts.orderBy('timestamp').reverse().toArray();
+      posts.forEach(post => {
+        const postDiv = document.createElement('div');
+        postDiv.className = 'post';
+
+        const subjectEl = document.createElement('h3');
+        subjectEl.textContent = post.subject;
+
+        const timestampEl = document.createElement('div');
+        timestampEl.className = 'timestamp';
+        const date = new Date(post.timestamp);
+        timestampEl.textContent = date.toLocaleString();
+
+        const messageEl = document.createElement('p');
+        messageEl.textContent = post.message;
+
+        postDiv.appendChild(subjectEl);
+        postDiv.appendChild(timestampEl);
+        postDiv.appendChild(messageEl);
+
+        postsContainer.appendChild(postDiv);
+      });
+    }
+
+    // Listen for form submission to add a new post
+    document.getElementById('postForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const subjectInput = document.getElementById('subject');
+      const messageInput = document.getElementById('message');
+      const subject = subjectInput.value.trim();
+      const message = messageInput.value.trim();
+
+      if (subject && message) {
+        // Add the new post with a current timestamp
+        await db.posts.add({ subject, message, timestamp: Date.now() });
+        // Clear the form fields
+        subjectInput.value = '';
+        messageInput.value = '';
+        // Reload the posts to include the new entry
+        loadPosts();
+      }
+    });
+
+    // Load posts when the page loads
+    loadPosts();
+  </script>
+</body>
+</html>
+
+
