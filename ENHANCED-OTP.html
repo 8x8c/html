@@ -1,22 +1,79 @@
-
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Enhanced One Time Pad Encrypt/Decrypt</title>
+  <title>Enhanced OTP Encrypt/Decrypt with File Download, Default Key, & Clear All</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    textarea { width: 100%; height: 150px; margin: 10px 0; }
-    button { margin-right: 10px; padding: 10px 20px; }
-    .explanation { margin-top: 40px; padding: 20px; border-top: 1px solid #ccc; }
-    pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
-    #errorMsg { color: red; margin-top: 10px; }
+    body { 
+      font-family: sans-serif; 
+      padding: 20px; 
+      background: #f5f5f5; 
+    }
+    textarea { 
+      width: 100%; 
+      height: 150px; 
+      margin: 10px 0; 
+    }
+    input, button { 
+      font-family: inherit; 
+    }
+    button { 
+      margin-right: 10px; 
+      padding: 10px 20px; 
+      cursor: pointer; 
+      border: none;
+      border-radius: 4px;
+    }
+    #encryptButton, #decryptButton { 
+      background: #007BFF; 
+      color: #fff; 
+    }
+    #encryptButton:hover, #decryptButton:hover { 
+      background: #0056b3; 
+    }
+    #downloadButton { 
+      background: #28a745; 
+      color: #fff; 
+    }
+    #downloadButton:hover { 
+      background: #218838; 
+    }
+    #defaultKeyButton { 
+      background: #FFC107; 
+      color: #333; 
+    }
+    #defaultKeyButton:hover { 
+      background: #e0a800; 
+    }
+    #clearAllButton {
+      background: #dc3545;
+      color: #fff;
+    }
+    #clearAllButton:hover {
+      background: #c82333;
+    }
+    #errorMsg { 
+      color: red; 
+      margin-top: 10px; 
+    }
+    .explanation { 
+      margin-top: 40px; 
+      padding: 20px; 
+      border-top: 1px solid #ccc; 
+    }
+    .explanation h2, .explanation h3 { margin-top: 0; }
+    .explanation ul { margin-left: 20px; }
+    pre { 
+      background: #f4f4f4; 
+      padding: 10px; 
+      overflow-x: auto; 
+    }
   </style>
 </head>
 <body>
   <h1>Enhanced One Time Pad Encrypt/Decrypt</h1>
   <p>
-    Enter your text and a key. The key must be at least as long as the text. In this version, a random IV (initialization vector) is generated that is as long as the plaintext. For encryption, each character of the plaintext is XORed with the corresponding character of both the key and the IV. The IV (encoded in hex) is prepended to the ciphertext, then an HMAC (for integrity) is appended, so that decryption is possible.
+    Enter your text and a key. The key must be at least as long as the text. A random IV (initialization vector) is generated that is as long as the plaintext. For encryption, each character of the plaintext is XORed with the corresponding character of both the key and the IV. The IV (encoded in hex) is prepended to the ciphertext, then an HMAC (for integrity) is appended so that decryption is possible.
   </p>
   
   <label for="inputText">Input Text (Plaintext for encryption, hex ciphertext for decryption):</label>
@@ -28,6 +85,9 @@
   <div>
     <button id="encryptButton">Encrypt</button>
     <button id="decryptButton">Decrypt</button>
+    <button id="downloadButton">Download Encrypted File</button>
+    <button id="defaultKeyButton">Use Default Key</button>
+    <button id="clearAllButton">Clear All</button>
   </div>
   
   <div id="errorMsg"></div>
@@ -43,6 +103,14 @@
     
     function clearError() {
       document.getElementById("errorMsg").textContent = "";
+    }
+    
+    // Clear all fields (plaintext, key, output, error)
+    function clearAll() {
+      document.getElementById("inputText").value = "";
+      document.getElementById("keyInput").value = "";
+      document.getElementById("outputText").value = "";
+      clearError();
     }
     
     // Convert an ArrayBuffer to a hex string.
@@ -123,7 +191,7 @@
       return true;
     }
     
-    // Encrypt: (now an async function to handle HMAC)
+    // Encrypt: (async function to handle HMAC)
     async function encrypt() {
       clearError();
       try {
@@ -181,8 +249,6 @@
         }
         
         // Compute plaintext length: messagePart is IV + encrypted message
-        // IV: (plaintextLength * 4 hex digits), encrypted message: (plaintextLength * 4 hex digits)
-        // Thus, plaintextLength = messagePart.length / 8.
         let plaintextLength = messagePart.length / 8;
         
         // Extract IV (first plaintextLength characters encoded in hex)
@@ -206,41 +272,89 @@
       }
     }
     
-    // Attach event listeners after DOM loads and check for crypto support.
+    // Download the encrypted output as a file named "1.enc"
+    function downloadEncryptedFile() {
+      clearError();
+      const output = document.getElementById("outputText").value;
+      if (!output) {
+        displayError("There is no output to download.");
+        return;
+      }
+      const blob = new Blob([output], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      
+      // Create a temporary download link and click it
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "1.enc";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    
+    // Generate a default key string of a given length using a base pattern.
+    function generateDefaultKey(requiredLength) {
+      const base = "ThisIsADefaultTestKeyForEncryptionAndShouldNeverBeLost.";
+      let result = "";
+      while (result.length < requiredLength) {
+        result += base;
+      }
+      return result.slice(0, requiredLength);
+    }
+    
+    // ---------------- Event Listeners ---------------- //
     document.addEventListener("DOMContentLoaded", function() {
+      // Check for crypto support
       if (!(window.crypto && window.crypto.getRandomValues && window.crypto.subtle)) {
         displayError("Your browser does not support the required cryptographic functions.");
         document.getElementById("encryptButton").disabled = true;
         document.getElementById("decryptButton").disabled = true;
+        document.getElementById("downloadButton").disabled = true;
+        document.getElementById("defaultKeyButton").disabled = true;
+        document.getElementById("clearAllButton").disabled = true;
         return;
       }
       document.getElementById("encryptButton").addEventListener("click", encrypt);
       document.getElementById("decryptButton").addEventListener("click", decrypt);
+      document.getElementById("downloadButton").addEventListener("click", downloadEncryptedFile);
+      document.getElementById("defaultKeyButton").addEventListener("click", function() {
+        // Determine the length of the plaintext.
+        const plaintext = document.getElementById("inputText").value;
+        // Set the extra margin (e.g., 10 extra characters) and a minimum length.
+        const extra = 10;
+        let requiredLength = plaintext.length + extra;
+        if (requiredLength < 50) { // enforce a minimum key length for testing
+          requiredLength = 50;
+        }
+        const defaultKey = generateDefaultKey(requiredLength);
+        document.getElementById("keyInput").value = defaultKey;
+      });
+      document.getElementById("clearAllButton").addEventListener("click", clearAll);
     });
   </script>
   
   <div class="explanation">
     <h2>Comprehensive Explanation</h2>
-    
-    <h3>Overview of the API & Implementation</h3>
+    <p>
+      This application performs enhanced one time pad encryption and decryption entirely in the browser. A random IV and HMAC-SHA256 are used for data integrity, and all values are hex-encoded for full Unicode support. In addition, a "Download Encrypted File" button lets you export the encrypted output as a file named <strong>1.enc</strong>.
+    </p>
+    <p>
+      The "Use Default Key" button dynamically generates a default key based on the current plaintext length plus an extra margin (with a minimum enforced length). This ensures that the key is always long enough for encryption—including the IV requirements—so the user never loses access to a key for testing or informal encryption.
+    </p>
+    <p>
+      The "Clear All" button resets the plaintext, key, output, and error messages, allowing you to start fresh with each operation.
+    </p>
+    <h3>Overview of the API &amp; Implementation</h3>
     <p>
       This web application is built using HTML5 and JavaScript. Encryption and decryption are performed entirely in the browser using a one time pad (OTP) method enhanced with a full-length random IV and an HMAC for data integrity. The code leverages modern browser crypto APIs.
     </p>
     <ul>
-      <li>
-        <strong>window.crypto.getRandomValues:</strong> Generates a cryptographically secure random IV.
-      </li>
-      <li>
-        <strong>window.crypto.subtle:</strong> Used to compute an HMAC-SHA256 to verify data integrity.
-      </li>
-      <li>
-        <strong>XOR Operation:</strong> Each character of the plaintext is XORed with the corresponding key character and IV character.
-      </li>
-      <li>
-        <strong>Hex Encoding:</strong> Every character is converted to a 4-digit hexadecimal value for full Unicode support.
-      </li>
+      <li><strong>window.crypto.getRandomValues:</strong> Generates a cryptographically secure random IV.</li>
+      <li><strong>window.crypto.subtle:</strong> Used to compute an HMAC-SHA256 to verify data integrity.</li>
+      <li><strong>XOR Operation:</strong> Each character of the plaintext is XORed with the corresponding key character and IV character.</li>
+      <li><strong>Hex Encoding:</strong> Every character is converted to a 4-digit hexadecimal value for full Unicode support.</li>
     </ul>
-    
     <h3>One Time Pad (OTP) Method</h3>
     <p>
       A one time pad uses a key that is as long as the message. When the key is truly random, used only once, and kept secret, OTP offers perfect secrecy.
@@ -251,26 +365,22 @@
       <li>The key is used only once.</li>
       <li>The key is kept completely secret.</li>
     </ul>
-    
-    <h3>Enhanced IV (Initialization Vector) & HMAC</h3>
+    <h3>Enhanced IV (Initialization Vector) &amp; HMAC</h3>
     <p>
       Although a pure OTP doesn’t require an IV, this implementation uses a full-length IV to protect against accidental key reuse and to further randomize the ciphertext. The IV (converted to hex) is prepended to the ciphertext.
     </p>
     <p>
       To ensure that the data has not been tampered with, an HMAC-SHA256 is computed over the combined IV and encrypted message. This HMAC (a 64-digit hex string) is appended to the ciphertext and verified during decryption.
     </p>
-    
-    <h3>Allowed Key Characters & Key Sanitization</h3>
+    <h3>Allowed Key Characters &amp; Key Sanitization</h3>
     <p>
       The key can include any of the 95 printable ASCII characters. However, newline characters (which might be inserted due to text wrapping on smaller browsers) are automatically removed and extra whitespace trimmed to guarantee consistency across devices.
     </p>
-    
-    <h3>Error Handling & Event Management</h3>
+    <h3>Error Handling &amp; Event Management</h3>
     <p>
       To improve reliability, error messages are displayed within the page rather than using alert dialogs. Operations are wrapped in try/catch blocks to catch and report any unexpected errors. Additionally, event listeners are attached after the DOM loads, and the application verifies that the browser supports the required cryptographic functions.
     </p>
-    
-    <h3>Overall Security & Methodology</h3>
+    <h3>Overall Security &amp; Methodology</h3>
     <p>
       This production-enhanced tool:
     </p>
@@ -282,7 +392,12 @@
       <li>Provides robust error handling and feedback within the user interface.</li>
       <li>Attaches event listeners in a maintainable way and checks for necessary crypto support.</li>
     </ul>
+    <h3>Note on Copying Text into Both Fields</h3>
+    <p>
+      If you copy the same text into both the input text area and the key area and still receive the error "For encryption, the key must be at least as long as the text," it is likely due to hidden differences. The key field is automatically sanitized (trimming extra spaces and removing newline characters), which can result in an effective key length that is shorter than the raw input. Even if the visible text appears identical, newline characters or extra whitespace in the plaintext might not be present in the sanitized key, leading to the error.
+    </p>
   </div>
 </body>
 </html>
+
 
