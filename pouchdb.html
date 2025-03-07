@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Textboard with PouchDB</title>
+  <title>Textboard with PouchDB (No Duplicate Posts)</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -144,7 +144,7 @@
           await db.put(post);
           subjectInput.value = '';
           messageInput.value = '';
-          loadPosts();
+          // Removed loadPosts() here, because db.changes() will trigger an update.
         } catch (err) {
           console.error('Error adding post:', err);
         }
@@ -163,6 +163,7 @@
   </script>
 </body>
 </html>
+
 
 
 
