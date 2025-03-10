@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Nonce, IV, Salt, and Pepper Explained</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 0 10px;
+      background-color: #fafafa;
+      color: #333;
+    }
+    h1, h2 {
+      color: #222;
+    }
+    code {
+      background: #f4f4f4;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    ul {
+      margin: 10px 0 10px 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Nonce, IV, Salt, and Pepper Explained</h1>
+
+  <p>
+    In cryptography, various terms describe methods of adding randomness or uniqueness to a process. This helps prevent vulnerabilities that can arise when the same key is reused. Below we explain four such concepts and how they relate to each other.
+  </p>
+
+  <h2>Nonce</h2>
+  <p>
+    A <strong>nonce</strong> (short for "number used once") is a value that is generated uniquely for each encryption operation. It is not required to be secret and is often included with the ciphertext.
+  </p>
+  <ul>
+    <li>
+      <strong>Purpose:</strong> Ensures that even if the same plaintext is encrypted with the same key, the ciphertext will be different each time.
+    </li>
+    <li>
+      <strong>Usage:</strong> Typically, the nonce is combined with the key (and sometimes a counter) to derive a unique keystream for a stream cipher or to randomize a block cipher mode.
+    </li>
+  </ul>
+
+  <h2>Initialization Vector (IV)</h2>
+  <p>
+    An <strong>initialization vector</strong> (IV) is very similar to a nonce. It is used in many block cipher modes (such as CBC, CTR, or GCM) to randomize the encryption process.
+  </p>
+  <ul>
+    <li>
+      <strong>Purpose:</strong> Prevents identical plaintext blocks from producing the same ciphertext when encrypted under the same key.
+    </li>
+    <li>
+      <strong>Usage:</strong> Like a nonce, an IV must be unique (and sometimes unpredictable) for each encryption with the same key. It is typically transmitted alongside the ciphertext.
+    </li>
+  </ul>
+
+  <h2>Salt</h2>
+  <p>
+    A <strong>salt</strong> is used primarily in hashing, especially for password storage. It is a random value added to the input of a hash function.
+  </p>
+  <ul>
+    <li>
+      <strong>Purpose:</strong> Ensures that even if two users have the same password, the resulting hash will be different. This prevents attackers from using precomputed tables (rainbow tables) to reverse the hash.
+    </li>
+    <li>
+      <strong>Usage:</strong> The salt is stored along with the hash but does not need to be secret.
+    </li>
+  </ul>
+
+  <h2>Pepper</h2>
+  <p>
+    A <strong>pepper</strong> is similar to a salt but is a secret value added to the data before hashing.
+  </p>
+  <ul>
+    <li>
+      <strong>Purpose:</strong> Enhances security by adding a secret component to the hash, making it harder for attackers to brute force the hash even if they know the salt.
+    </li>
+    <li>
+      <strong>Usage:</strong> Unlike a salt, the pepper is not stored with the hash; it is kept secret and is typically hardcoded or stored separately.
+    </li>
+  </ul>
+
+  <h2>How Do These Concepts Improve Security?</h2>
+  <p>
+    In a true one-time pad, the key must be as long as the plaintext and used only once to ensure perfect secrecy. Reusing a key makes the system vulnerable. When keys are reused—as in many practical encryption schemes—additional randomness is required:
+  </p>
+  <ul>
+    <li>
+      <strong>Nonce/IV:</strong> These are used to ensure that each encryption produces a unique keystream or ciphertext, even if the same key is used. They are essential in stream ciphers and block cipher modes.
+    </li>
+    <li>
+      <strong>Salt:</strong> While not used directly in encryption, salts ensure that hashing (like password hashing) produces unique outputs, thwarting precomputed attacks.
+    </li>
+    <li>
+      <strong>Pepper:</strong> Provides an extra layer of security in hashing by adding a secret value, though it is not typically applied in encryption processes.
+    </li>
+  </ul>
+  
+  <h2>Conclusion</h2>
+  <p>
+    While the nonce (or IV) is the standard way to introduce randomness and ensure that ciphertexts are unique when the same key is reused, salts and peppers are generally applied in hashing rather than in encryption. The nonce or IV makes sure that each encryption operation is unique, which is crucial when you cannot use a key only once.
+  </p>
+  
+</body>
+</html>
+
